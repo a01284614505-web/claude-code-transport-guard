@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+config_dir=${CLAUDE_CONFIG_DIR:-"$HOME/.claude"}
+install_dir=${CCGUARD_HOME:-"$config_dir/ccguard"}
+. "$install_dir/lib/wrapper-common.sh"
+ccguard_load_credentials
+export CCGUARD_PROMPT=on CCGUARD_GATE=on
+binary=$(ccguard_find_claude)
+ccguard_exec "$binary" --append-system-prompt-file "$install_dir/prompts/guard-contract.txt" "$@"

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+config_dir=${CLAUDE_CONFIG_DIR:-"$HOME/.claude"}
+install_dir=${CCGUARD_HOME:-"$config_dir/ccguard"}
+case ${1:-help} in
+  run) shift; exec "$install_dir/lib/probe.sh" "$@" ;;
+  help|-h|--help)
+    printf 'Usage: claude-probe run\n'
+    printf 'Only the explicit run subcommand sends a request.\n'
+    ;;
+  *) printf 'Usage: claude-probe run\n' >&2; exit 2 ;;
+esac

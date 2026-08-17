@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+config_dir=${CLAUDE_CONFIG_DIR:-"$HOME/.claude"}
+install_dir=${CCGUARD_HOME:-"$config_dir/ccguard"}
+bin_dir=${XDG_BIN_HOME:-"$HOME/.local/bin"}
+settings="$config_dir/settings.json"
+state_file="$install_dir/state.env"
+python_bin=${PYTHON:-$(command -v python3 || command -v python || true)}
+
+usage() {
+  cat <<'EOF'
+Usage: ccguard <command>
+
+Commands:
+  status                 Show installed components and active state
+  enable                 Enable prompt anchor and local Bash gate
+  disable                Disable prompt anchor and local Bash gate
+  uninstall              Remove ccguard hooks and installed files
+  uninstall --restore-backup
+                         Restore pre-install settings and claude shim backups
+EOF
+}
+
+require_install() {
+  [ -d "$install_dir" ] || {
+    printf 'ccguard is not installed at %s\n' "$install_dir" >&2
+    exit 1
+  }
+  [ -n "$python_bin" ] || {
+    printf 'Python 3 is required\n' >&2
+    exit 1
+  }
+}
+
+write_state() {
+  local prompt=$1 gate=$2 temp="$state_file.tmp"
+  umask 077
+  {
+    printf 'CCGUARD_PROMPT=%s\n' "$prompt"
+    printf 'CCGUARD_GATE=%s\n' "$gate"
+  } >"$temp"
+  mv "$temp" "$state_file"
+}
+
+read_state() {
+  CCGUARD_PROMPT=on
+  CCGUARD_GATE=on
+  [ -r "$state_file" ] && . "$state_file"
+}
+
+status() {
+  require_install
+  read_state
+  printf 'install: %s\nprompt:  %s\ngate:    %s\n' "$install_dir" "$CCGUARD_PROMPT" "$CCGUARD_GATE"
+  printf 'hooks:   '
+  "$python_bin" "$install_dir/lib/settings.py" status "$settings"
+  local name
+  for name in ccguard claude-guarded claude-bare claude-raw claude-probe; do
+    if [ -x "$bin_dir/$name" ]; then
+      printf '%-15s installed\n' "$name:"
+    else
+      printf '%-15s missing\n' "$name:"
+    fi
+  done
+}
+
+uninstall() {
+  require_install
+  local restore=${1:-}
+  local settings_backup="" claude_backup=""
+  if [ -r "$install_dir/manifest.env" ]; then
+    . "$install_dir/manifest.env"
+    settings_backup=${SETTINGS_BACKUP:-}
+    claude_backup=${CLAUDE_BACKUP:-}
+  fi
+  if [ "$restore" = "--restore-backup" ]; then
+    [ -n "$settings_backup" ] && [ -f "$settings_backup" ] && cp "$settings_backup" "$settings"
+  elif [ -n "$restore" ]; then
+    usage >&2
+    exit 2
+  else
+    "$python_bin" "$install_dir/lib/settings.py" remove "$settings"
+  fi
+
+  if [ -L "$bin_dir/claude" ] && [ "$(readlink "$bin_dir/claude")" = "$bin_dir/claude-guarded" ]; then
+    rm -f "$bin_dir/claude"
+  fi
+  if [ "$restore" = "--restore-backup" ] && [ -n "$claude_backup" ] && [ -f "$claude_backup" ]; then
+    cp "$claude_backup" "$bin_dir/claude"
+    chmod 700 "$bin_dir/claude"
+  fi
+  rm -f "$bin_dir/ccguard" "$bin_dir/claude-guarded" "$bin_dir/claude-bare" \
+    "$bin_dir/claude-raw" "$bin_dir/claude-probe"
+  rm -rf "$install_dir"
+  printf 'ccguard uninstalled\n'
+}
+
+case ${1:-status} in
+  status) status ;;
+  enable) require_install; write_state on on; printf 'ccguard enabled\n' ;;
+  disable) require_install; write_state off off; printf 'ccguard disabled\n' ;;
+  uninstall) shift; uninstall "${1:-}" ;;
+  help|-h|--help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

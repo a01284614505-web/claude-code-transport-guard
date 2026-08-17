@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+config_dir=${CLAUDE_CONFIG_DIR:-"$HOME/.claude"}
+install_dir=${CCGUARD_HOME:-"$config_dir/ccguard"}
+. "$install_dir/lib/wrapper-common.sh"
+ccguard_load_credentials
+export CCGUARD_PROMPT=off CCGUARD_GATE=off
+binary=$(ccguard_find_claude)
+printf '\033[33mccguard raw: no custom system prompt; not recommended for coding because tool use may be unreliable\033[0m\n' >&2
+ccguard_exec "$binary" --system-prompt-file "$install_dir/prompts/empty-system.txt" "$@"
