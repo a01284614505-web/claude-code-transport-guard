@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import tempfile
 import threading
@@ -52,6 +53,28 @@ class GateRegression(unittest.TestCase):
         fake_python.chmod(0o700)
         env = dict(self.env, PYTHON=str(fake_python))
         self.assertEqual(2, self.check("git status", env).returncode)
+
+    def test_timeout_policy_with_stub_checker(self):
+        """Exercise a stalled process and inspect policy; no real Claude client is used."""
+        fake_python = self.home / "stalling-python"
+        fake_python.write_text("#!/bin/sh\nsleep 2\n")
+        fake_python.chmod(0o700)
+        env = dict(self.env, PYTHON=str(fake_python))
+        payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": "git status"}})
+        proc = subprocess.Popen(["bash", str(self.hook)], stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, env=env, start_new_session=True)
+        try:
+            with self.assertRaises(subprocess.TimeoutExpired):
+                proc.communicate(payload, timeout=0.1)
+        finally:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.communicate()
+        import sys
+        sys.path.insert(0, str(ROOT / "lib"))
+        import settings
+        policy = settings.hook_specs(self.home)["PreToolUse"]["hooks"][0]
+        self.assertEqual("block", policy["onFailure"])
 
     def test_log_omits_fake_secret(self):
         secret = "FAKE_SECRET_DO_NOT_LOG_12345"
@@ -167,6 +190,44 @@ class InstallRegression(unittest.TestCase):
         result = self.run_cmd(str(self.bin_dir / "ccguard"), "status")
         self.assertEqual(0, result.returncode)
         self.assertIn("no managed PreToolUse hook", result.stderr)
+
+    def test_first_install_preserves_unrelated_mode_command(self):
+        other = self.bin_dir / "claude-guarded"
+        other.write_text("unrelated launcher\n")
+        result = self.run_cmd("bash", str(ROOT / "install.sh"))
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual("unrelated launcher\n", other.read_text())
+        self.assertEqual({"model": "original"}, json.loads((self.config_dir / "settings.json").read_text()))
+
+    def test_shim_requires_original_binary(self):
+        self.fake.unlink()
+        result = self.run_cmd("bash", str(ROOT / "install.sh"), "--with-claude-shim")
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(self.fake.exists())
+        self.assertEqual({"model": "original"}, json.loads((self.config_dir / "settings.json").read_text()))
+
+    def test_invalid_settings_stop_before_installation(self):
+        settings_path = self.config_dir / "settings.json"
+        settings_path.write_text("{invalid")
+        result = self.run_cmd("bash", str(ROOT / "install.sh"))
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual("{invalid", settings_path.read_text())
+        self.assertFalse((self.config_dir / "ccguard" / "config.env").exists())
+
+    def test_restore_does_not_overwrite_original_claude_without_shim(self):
+        self.assertEqual(0, self.run_cmd("bash", str(ROOT / "install.sh")).returncode)
+        self.fake.write_text("updated user launcher\n")
+        result = self.run_cmd(str(self.bin_dir / "ccguard"), "uninstall", "--restore-backup")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual("updated user launcher\n", self.fake.read_text())
+
+    def test_restore_refuses_replaced_shim(self):
+        self.assertEqual(0, self.run_cmd("bash", str(ROOT / "install.sh"), "--with-claude-shim").returncode)
+        self.fake.unlink()
+        self.fake.write_text("replacement launcher\n")
+        result = self.run_cmd(str(self.bin_dir / "ccguard"), "uninstall", "--restore-backup")
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual("replacement launcher\n", self.fake.read_text())
 
 
 class ProbeRegression(unittest.TestCase):

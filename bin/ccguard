@@ -83,6 +83,13 @@ uninstall() {
     settings_backup=${SETTINGS_BACKUP:-}
     claude_backup=${CLAUDE_BACKUP:-}
   fi
+  if [ "$restore" = "--restore-backup" ] && [ -n "$claude_backup" ] &&
+     [ -f "$claude_backup" ] &&
+     { [ ! -L "$bin_dir/claude" ] ||
+       [ "$(readlink "$bin_dir/claude")" != "$bin_dir/claude-guarded" ]; }; then
+    printf 'Claude shim changed since install; refusing backup restore. Use plain uninstall to preserve it.\n' >&2
+    exit 1
+  fi
   if [ "$restore" = "--restore-backup" ]; then
     if [ -f "$settings" ] && [ -f "$install_dir/backups/settings.installed.json" ] &&
        ! cmp -s "$settings" "$install_dir/backups/settings.installed.json"; then

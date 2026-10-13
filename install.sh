@@ -29,9 +29,20 @@ python_bin=${PYTHON:-$(command -v python3 || command -v python || true)}
 bash_bin=${BASH:-$(command -v bash || true)}
 [ -n "$python_bin" ] || { printf 'Python 3 is required\n' >&2; exit 1; }
 [ -n "$bash_bin" ] || { printf 'Bash is required\n' >&2; exit 1; }
-mkdir -p "$bin_dir" "$config_dir" "$install_dir/logs"
 umask 077
-chmod 700 "$install_dir" "$install_dir/logs"
+# Validate existing settings and command-name collisions before changing files.
+"$python_bin" "$ROOT/lib/settings.py" status "$settings" >/dev/null || {
+  printf 'Invalid Claude Code settings; installation aborted\n' >&2
+  exit 1
+}
+if [ ! -f "$install_dir/manifest.env" ]; then
+  for name in ccguard claude-guarded claude-bare claude-raw claude-probe; do
+    if [ -e "$bin_dir/$name" ] || [ -L "$bin_dir/$name" ]; then
+      printf 'Refusing to replace an existing command: %s\n' "$bin_dir/$name" >&2
+      exit 1
+    fi
+  done
+fi
 
 stamp=$(date +%Y%m%d-%H%M%S)
 previous_original=""
@@ -52,13 +63,20 @@ if [ "$with_shim" -eq 1 ] && [ -L "$bin_dir/claude" ] &&
   exit 1
 fi
 original_claude=${previous_original:-$(command -v claude 2>/dev/null || true)}
+if [ "$with_shim" -eq 1 ] && [ -z "$original_claude" ]; then
+  printf 'Cannot create claude shim without an original Claude Code executable\n' >&2
+  exit 1
+fi
+mkdir -p "$bin_dir" "$config_dir" "$install_dir/logs"
+chmod 700 "$install_dir" "$install_dir/logs"
 settings_backup=${previous_settings_backup:-"$install_dir/backups/settings.$stamp.json"}
 claude_backup=${previous_claude_backup:-"$install_dir/backups/claude.$stamp"}
 mkdir -p "$install_dir/backups"
 if [ -z "$previous_settings_backup" ] && [ -f "$settings" ]; then
   cp "$settings" "$settings_backup"
 fi
-if [ -z "$previous_claude_backup" ] && [ -e "$bin_dir/claude" ] && [ ! -L "$bin_dir/claude" ]; then
+if [ "$with_shim" -eq 1 ] && [ ! -f "$claude_backup" ] &&
+   [ -e "$bin_dir/claude" ] && [ ! -L "$bin_dir/claude" ]; then
   cp -p "$bin_dir/claude" "$claude_backup"
 fi
 if [ "$with_shim" -eq 1 ] && [ -f "$claude_backup" ] &&
