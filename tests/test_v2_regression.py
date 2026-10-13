@@ -130,6 +130,23 @@ class InstallRegression(unittest.TestCase):
         self.assertEqual("user-change", json.loads(settings_path.read_text())["theme"])
         self.assertEqual(0, self.run_cmd(str(self.bin_dir / "ccguard"), "uninstall").returncode)
 
+    def test_reinstall_does_not_reset_rollback_change_detection(self):
+        self.assertEqual(0, self.run_cmd("bash", str(ROOT / "install.sh")).returncode)
+        settings_path = self.config_dir / "settings.json"
+        data = json.loads(settings_path.read_text())
+        data["theme"] = "later-edit"
+        settings_path.write_text(json.dumps(data))
+        self.assertEqual(0, self.run_cmd("bash", str(ROOT / "install.sh")).returncode)
+        self.assertNotEqual(0, self.run_cmd(str(self.bin_dir / "ccguard"), "uninstall", "--restore-backup").returncode)
+        self.assertEqual("later-edit", json.loads(settings_path.read_text())["theme"])
+
+    def test_restore_without_prior_settings_removes_hooks(self):
+        settings_path = self.config_dir / "settings.json"
+        settings_path.unlink()
+        self.assertEqual(0, self.run_cmd("bash", str(ROOT / "install.sh")).returncode)
+        self.assertEqual(0, self.run_cmd(str(self.bin_dir / "ccguard"), "uninstall", "--restore-backup").returncode)
+        self.assertNotIn("hooks", json.loads(settings_path.read_text()))
+
 
 if __name__ == "__main__":
     unittest.main()

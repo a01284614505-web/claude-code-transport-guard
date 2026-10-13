@@ -83,7 +83,11 @@ uninstall() {
       printf 'Settings changed since install; refusing backup restore. Use plain uninstall to preserve edits.\n' >&2
       exit 1
     fi
-    [ -n "$settings_backup" ] && [ -f "$settings_backup" ] && cp "$settings_backup" "$settings"
+    if [ -n "$settings_backup" ] && [ -f "$settings_backup" ]; then
+      cp "$settings_backup" "$settings"
+    else
+      "$python_bin" "$install_dir/lib/settings.py" remove "$settings"
+    fi
   elif [ -n "$restore" ]; then
     usage >&2
     exit 2

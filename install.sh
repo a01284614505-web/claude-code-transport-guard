@@ -78,7 +78,9 @@ printf 'SETTINGS_BACKUP=%q\nCLAUDE_BACKUP=%q\n' \
 chmod 600 "$install_dir/config.env" "$install_dir/manifest.env"
 
 "$python_bin" "$install_dir/lib/settings.py" install "$settings" "$install_dir"
-cp -p "$settings" "$install_dir/backups/settings.installed.json"
+if [ ! -f "$install_dir/backups/settings.installed.json" ]; then
+  cp -p "$settings" "$install_dir/backups/settings.installed.json"
+fi
 printf 'CCGUARD_PROMPT=on\nCCGUARD_GATE=on\n' >"$install_dir/state.env"
 chmod 600 "$install_dir/state.env"
 
