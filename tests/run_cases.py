@@ -41,7 +41,8 @@ def run_suite(label, source, cases):
                     decision = "error"
             if proc.returncode not in (0, 2):
                 decision = "error"
-            rows.append({**case, "version": label, "actual_behavior": decision,
+            rows.append({**case, "initial_environment": CASES["initial_environment"],
+                         "version": label, "actual_behavior": decision,
                          "passed": decision == case["expected_behavior"],
                          "security_goal_met": (decision == "deny" if case["risk"] == "high" else decision == "allow"),
                          "elapsed_ms": round(elapsed_ms, 3)})

@@ -56,8 +56,14 @@ status() {
   require_install
   read_state
   printf 'install: %s\nprompt:  %s\ngate:    %s\n' "$install_dir" "$CCGUARD_PROMPT" "$CCGUARD_GATE"
-  printf 'hooks:   '
-  "$python_bin" "$install_dir/lib/settings.py" status "$settings"
+  local hook_status
+  hook_status=$("$python_bin" "$install_dir/lib/settings.py" status "$settings")
+  printf 'hooks:   %s\n' "$hook_status"
+  if [ "$CCGUARD_GATE" = on ] &&
+     ! "$python_bin" -c 'import json,sys; sys.exit(0 if json.loads(sys.argv[1]).get("PreToolUse", 0) else 1)' "$hook_status"; then
+    printf 'warning: Bash gate is on in state but no managed PreToolUse hook is configured\n' >&2
+  fi
+  printf 'note: configured status only; confirm active hook with Claude Code /hooks\n'
   local name
   for name in ccguard claude-guarded claude-bare claude-raw claude-probe; do
     if [ -x "$bin_dir/$name" ]; then

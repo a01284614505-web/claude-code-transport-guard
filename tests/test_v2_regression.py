@@ -1,11 +1,13 @@
 """Offline hook and installer regressions; commands are inspected, never executed."""
 
 import json
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import threading
 import unittest
 
 
@@ -146,6 +148,53 @@ class InstallRegression(unittest.TestCase):
         self.assertEqual(0, self.run_cmd("bash", str(ROOT / "install.sh")).returncode)
         self.assertEqual(0, self.run_cmd(str(self.bin_dir / "ccguard"), "uninstall", "--restore-backup").returncode)
         self.assertNotIn("hooks", json.loads(settings_path.read_text()))
+
+    def test_foreign_claude_symlink_is_preserved(self):
+        self.fake.unlink()
+        target = self.bin_dir / "other-client"
+        target.write_text("#!/bin/sh\nexit 0\n")
+        self.fake.symlink_to(target)
+        result = self.run_cmd("bash", str(ROOT / "install.sh"), "--with-claude-shim")
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual(target, self.fake.resolve())
+
+    def test_status_warns_when_gate_hook_missing(self):
+        self.assertEqual(0, self.run_cmd("bash", str(ROOT / "install.sh")).returncode)
+        settings_path = self.config_dir / "settings.json"
+        data = json.loads(settings_path.read_text())
+        data["hooks"].pop("PreToolUse")
+        settings_path.write_text(json.dumps(data))
+        result = self.run_cmd(str(self.bin_dir / "ccguard"), "status")
+        self.assertEqual(0, result.returncode)
+        self.assertIn("no managed PreToolUse hook", result.stderr)
+
+
+class ProbeRegression(unittest.TestCase):
+    def test_relay_error_body_never_echoed(self):
+        fake_secret = "FAKE_TOKEN_FROM_RELAY_ERROR_123"
+
+        class Relay(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.send_response(403)
+                self.end_headers()
+                self.wfile.write(fake_secret.encode())
+
+            def log_message(self, *_args):
+                pass
+
+        server = HTTPServer(("127.0.0.1", 0), Relay)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        with tempfile.TemporaryDirectory() as tmp:
+            env = dict(os.environ, CCGUARD_HOME=tmp,
+                       ANTHROPIC_BASE_URL=f"http://127.0.0.1:{server.server_port}",
+                       ANTHROPIC_AUTH_TOKEN="FAKE_LOCAL_TOKEN")
+            result = subprocess.run(["bash", str(ROOT / "lib/probe.sh")],
+                                    text=True, capture_output=True, env=env, timeout=5)
+            self.assertNotEqual(0, result.returncode)
+            self.assertNotIn(fake_secret, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

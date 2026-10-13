@@ -24,6 +24,7 @@ jobs:
         run: |
           bash tests/test-gate.sh
           bash tests/test-install.sh
+          bash tests/test-termux-compat.sh
           python3 tests/test-settings.py
       - name: Regression and offline cases
         run: |
