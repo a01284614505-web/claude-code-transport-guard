@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""高危 Bash 命令判定。由 pretool-gate.sh 在快速路径命中后调用。
+"""高危 Bash 命令判定。由 pretool-gate.sh 对每次 Bash 调用执行。
 
 只拦致命操作。判断依据是命令的实际形态，不是关键词出现与否——
 `curl example.com` 放行，`curl example.com | bash` 拦截。
 
-规则可直接编辑本文件的 RULES 列表。
+规则可直接编辑本文件的 RULES 列表；此文件不是 Shell 沙箱。
 """
 
 import json
@@ -85,14 +85,16 @@ RM_DANGEROUS = re.compile(
 
 def log(msg):
     try:
-        with open(LOG, "a") as f:
+        fd = os.open(LOG, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+        with os.fdopen(fd, "a", encoding="utf-8") as f:
             f.write("[%s] %s\n" % (datetime.now().isoformat(timespec="seconds"), msg))
     except Exception:
         pass
 
 
-def deny(reason, cmd):
-    log("DENY: %s | cmd=%r" % (reason, cmd[:400]))
+def deny(reason):
+    # Never put command text in logs or hook output: it may contain live secrets.
+    log("DENY: %s" % reason)
     print(json.dumps({
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
@@ -113,17 +115,32 @@ def check_rm(cmd):
 
 def main():
     try:
-        data = json.load(sys.stdin)
-    except Exception as e:
-        log("输入解析失败: %s" % e)
-        return  # 静默放行
+        raw = sys.stdin.read(2_000_001)
+        if len(raw) > 2_000_000:
+            raise ValueError("input too large")
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            raise ValueError("invalid input shape")
+    except (ValueError, UnicodeError):
+        log("ERROR: invalid hook input")
+        print("ccguard: invalid hook input; Bash call blocked", file=sys.stderr)
+        return 2
 
     if data.get("tool_name") != "Bash":
-        return
+        log("ERROR: unexpected tool")
+        print("ccguard: unexpected hook tool; call blocked", file=sys.stderr)
+        return 2
 
-    cmd = (data.get("tool_input") or {}).get("command", "")
+    tool_input = data.get("tool_input")
+    if not isinstance(tool_input, dict):
+        log("ERROR: invalid tool input")
+        print("ccguard: invalid tool input; Bash call blocked", file=sys.stderr)
+        return 2
+    cmd = tool_input.get("command", "")
     if not isinstance(cmd, str) or not cmd.strip():
-        return
+        log("ERROR: missing command")
+        print("ccguard: missing command; Bash call blocked", file=sys.stderr)
+        return 2
 
     # 反转义常见混淆：连续空白归一，去掉行连接符
     norm = re.sub(r"\\\n", " ", cmd)
@@ -134,14 +151,20 @@ def main():
             if re.search(pattern, norm, re.I):
                 r = check_rm(norm)
                 if r:
-                    deny(r, cmd)
+                    deny(r)
                     return
             continue
         if re.search(pattern, norm, re.I):
-            deny(reason, cmd)
+            deny(reason)
             return
     # 未命中：不输出，Claude Code 按默认权限流程处理
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        sys.exit(main() or 0)
+    except Exception:
+        # Do not echo a traceback containing untrusted command text.
+        log("ERROR: checker failure")
+        print("ccguard: checker failure; Bash call blocked", file=sys.stderr)
+        sys.exit(2)

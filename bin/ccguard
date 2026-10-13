@@ -46,7 +46,10 @@ write_state() {
 read_state() {
   CCGUARD_PROMPT=on
   CCGUARD_GATE=on
-  [ -r "$state_file" ] && . "$state_file"
+  if [ -r "$state_file" ]; then
+    if grep -qx 'CCGUARD_PROMPT=off' "$state_file"; then CCGUARD_PROMPT=off; fi
+    if grep -qx 'CCGUARD_GATE=off' "$state_file"; then CCGUARD_GATE=off; fi
+  fi
 }
 
 status() {
@@ -75,6 +78,11 @@ uninstall() {
     claude_backup=${CLAUDE_BACKUP:-}
   fi
   if [ "$restore" = "--restore-backup" ]; then
+    if [ -f "$settings" ] && [ -f "$install_dir/backups/settings.installed.json" ] &&
+       ! cmp -s "$settings" "$install_dir/backups/settings.installed.json"; then
+      printf 'Settings changed since install; refusing backup restore. Use plain uninstall to preserve edits.\n' >&2
+      exit 1
+    fi
     [ -n "$settings_backup" ] && [ -f "$settings_backup" ] && cp "$settings_backup" "$settings"
   elif [ -n "$restore" ]; then
     usage >&2

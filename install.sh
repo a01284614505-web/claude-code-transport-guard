@@ -46,6 +46,11 @@ if [ -r "$install_dir/manifest.env" ]; then
   previous_settings_backup=${SETTINGS_BACKUP:-}
   previous_claude_backup=${CLAUDE_BACKUP:-}
 fi
+if [ "$with_shim" -eq 1 ] && [ -L "$bin_dir/claude" ] &&
+   [ "$(readlink "$bin_dir/claude")" != "$bin_dir/claude-guarded" ]; then
+  printf 'Refusing to replace an existing claude symlink: %s\n' "$bin_dir/claude" >&2
+  exit 1
+fi
 original_claude=${previous_original:-$(command -v claude 2>/dev/null || true)}
 settings_backup=${previous_settings_backup:-"$install_dir/backups/settings.$stamp.json"}
 claude_backup=${previous_claude_backup:-"$install_dir/backups/claude.$stamp"}
@@ -54,7 +59,11 @@ if [ -z "$previous_settings_backup" ] && [ -f "$settings" ]; then
   cp "$settings" "$settings_backup"
 fi
 if [ -z "$previous_claude_backup" ] && [ -e "$bin_dir/claude" ] && [ ! -L "$bin_dir/claude" ]; then
-  cp "$bin_dir/claude" "$claude_backup"
+  cp -p "$bin_dir/claude" "$claude_backup"
+fi
+if [ "$with_shim" -eq 1 ] && [ -f "$claude_backup" ] &&
+   [ "$original_claude" = "$bin_dir/claude" ]; then
+  original_claude=$claude_backup
 fi
 
 cp -R "$ROOT/lib" "$install_dir/"
@@ -62,17 +71,14 @@ cp -R "$ROOT/prompts" "$install_dir/"
 chmod 700 "$install_dir/lib"/*.sh "$install_dir/lib"/*.py
 chmod 600 "$install_dir/prompts"/*
 
-cat >"$install_dir/config.env" <<EOF
-CCGUARD_HOME=$install_dir
-CCGUARD_ORIGINAL_CLAUDE_BIN=$original_claude
-EOF
-cat >"$install_dir/manifest.env" <<EOF
-SETTINGS_BACKUP=$settings_backup
-CLAUDE_BACKUP=$claude_backup
-EOF
+printf 'CCGUARD_HOME=%q\nCCGUARD_ORIGINAL_CLAUDE_BIN=%q\n' \
+  "$install_dir" "$original_claude" >"$install_dir/config.env"
+printf 'SETTINGS_BACKUP=%q\nCLAUDE_BACKUP=%q\n' \
+  "$settings_backup" "$claude_backup" >"$install_dir/manifest.env"
 chmod 600 "$install_dir/config.env" "$install_dir/manifest.env"
 
 "$python_bin" "$install_dir/lib/settings.py" install "$settings" "$install_dir"
+cp -p "$settings" "$install_dir/backups/settings.installed.json"
 printf 'CCGUARD_PROMPT=on\nCCGUARD_GATE=on\n' >"$install_dir/state.env"
 chmod 600 "$install_dir/state.env"
 
@@ -86,7 +92,9 @@ for file in "$install_dir"/lib/*.sh "$bin_dir"/ccguard "$bin_dir"/claude-guarded
   sed -i "1s|^#!/usr/bin/env bash$|#!$bash_bin|" "$file"
 done
 if [ "$with_shim" -eq 1 ]; then
-  rm -f "$bin_dir/claude"
+  if [ -e "$bin_dir/claude" ] || [ -L "$bin_dir/claude" ]; then
+    rm -f "$bin_dir/claude"
+  fi
   ln -s "$bin_dir/claude-guarded" "$bin_dir/claude"
 fi
 

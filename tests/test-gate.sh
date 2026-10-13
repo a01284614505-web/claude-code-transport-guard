@@ -4,15 +4,18 @@ set -u
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 GATE="$ROOT/lib/pretool-gate.sh"
-export CCGUARD_HOME="$ROOT"
-mkdir -p "$ROOT/logs"
-printf 'CCGUARD_PROMPT=on\nCCGUARD_GATE=on\n' >"$ROOT/state.env"
+TEST_DIR=$(mktemp -d)
+trap 'rm -rf "$TEST_DIR"' EXIT
+export CCGUARD_HOME="$TEST_DIR"
+mkdir -p "$TEST_DIR/lib" "$TEST_DIR/logs"
+cp "$ROOT/lib/gate_check.py" "$TEST_DIR/lib/gate_check.py"
+printf 'CCGUARD_PROMPT=on\nCCGUARD_GATE=on\n' >"$TEST_DIR/state.env"
 pass=0; fail=0
 
 run() {  # run <期望 deny|allow> <命令>
   local want="$1" cmd="$2" out
   out=$(printf '{"tool_name":"Bash","tool_input":{"command":%s}}' \
-        "$(python -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$cmd")" \
+        "$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$cmd")" \
         | bash "$GATE" 2>/dev/null)
   local got="allow"
   printf '%s' "$out" | grep -q '"deny"' && got="deny"
@@ -62,6 +65,4 @@ run allow 'history | tail -20'
 
 echo
 printf '通过 %d，失败 %d\n' "$pass" "$fail"
-rm -f "$ROOT/state.env"
-rm -rf "$ROOT/logs"
 [ "$fail" -eq 0 ]

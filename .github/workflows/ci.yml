@@ -1,0 +1,31 @@
+name: offline security regression
+
+on:
+  push:
+    branches: [main, security-hardening-v2]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Bash syntax
+        run: bash -n install.sh bin/* lib/*.sh tests/*.sh
+      - name: Python syntax
+        run: python3 -m compileall -q lib tests
+      - name: Existing tests
+        run: |
+          bash tests/test-gate.sh
+          bash tests/test-install.sh
+          python3 tests/test-settings.py
+      - name: Regression and offline cases
+        run: |
+          python3 -m unittest discover -s tests -p 'test_v2_regression.py' -v
+          python3 tests/run_cases.py --output /tmp/ccguard-offline-results.json

@@ -4,6 +4,7 @@
 import argparse
 import json
 import os
+import shlex
 from pathlib import Path
 
 MARKER = "ccguard-managed"
@@ -15,15 +16,16 @@ def hook_specs(install_dir):
             "matcher": "Bash",
             "hooks": [{
                 "type": "command",
-                "command": str(install_dir / "lib" / "pretool-gate.sh"),
+                "command": shlex.quote(str(install_dir / "lib" / "pretool-gate.sh")),
                 "timeout": 10,
+                "onFailure": "block",
                 "statusMessage": MARKER,
             }],
         },
         "UserPromptSubmit": {
             "hooks": [{
                 "type": "command",
-                "command": str(install_dir / "lib" / "prompt-anchor.sh"),
+                "command": shlex.quote(str(install_dir / "lib" / "prompt-anchor.sh")),
                 "timeout": 5,
                 "statusMessage": MARKER,
             }],
@@ -32,11 +34,15 @@ def hook_specs(install_dir):
 
 
 def is_owned(entry):
-    for hook in entry.get("hooks", []):
-        command = hook.get("command", "")
-        if hook.get("statusMessage") == MARKER or "/ccguard/lib/" in command:
-            return True
-    return False
+    return any(is_owned_handler(hook) for hook in entry.get("hooks", []))
+
+
+def is_owned_handler(hook):
+    command = hook.get("command", "")
+    return hook.get("statusMessage") == MARKER or (
+        "/ccguard/lib/" in command and
+        any(name in command for name in ("pretool-gate.sh", "prompt-anchor.sh"))
+    )
 
 
 def load(path):
@@ -60,11 +66,11 @@ def save(path, data):
 
 
 def install(data, install_dir):
+    remove(data)
     hooks = data.setdefault("hooks", {})
     specs = hook_specs(install_dir)
     for event, spec in specs.items():
         entries = hooks.setdefault(event, [])
-        entries[:] = [entry for entry in entries if not is_owned(entry)]
         entries.append(spec)
     return data
 
@@ -72,7 +78,12 @@ def install(data, install_dir):
 def remove(data):
     hooks = data.get("hooks", {})
     for event in list(hooks):
-        entries = [entry for entry in hooks[event] if not is_owned(entry)]
+        entries = []
+        for entry in hooks[event]:
+            remaining = [handler for handler in entry.get("hooks", [])
+                         if not is_owned_handler(handler)]
+            if remaining:
+                entries.append({**entry, "hooks": remaining})
         if entries:
             hooks[event] = entries
         else:
