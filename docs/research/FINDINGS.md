@@ -42,4 +42,34 @@ These are self-audit findings against original commit `3007550`, with commands i
 - **Fix / commit / regression:** Remove only owned inner handlers in `82183ab`; `test_preserve_other_handler_in_same_group` passes.
 - **Residual risk:** A malicious same-user process can still edit settings directly. Ownership detection for legacy entries remains name/marker based.
 
-Other design and compatibility issues, including path quoting, shim recursion, probe error disclosure, test portability, and known Shell evasion cases, are documented in `REVIEW.md` and tested where feasible. They are project self-audit findings; no external project vulnerability was probed or reported.
+## CCTG-005 — Installer overwrites unrelated command and leaves partial state
+
+- **Summary / severity:** P1, medium. A first install can replace an unrelated `claude-guarded` executable, while invalid settings can leave configuration files from a failed install. An optional shim can also point back to itself when no original Claude executable is available.
+- **Affected version / prerequisites:** Original `3007550` through initial v0.2.0 commit `0a403ac`; an existing command-name collision, invalid settings JSON, or `--with-claude-shim` without an original `claude` executable.
+- **Safe reproduction:** In a temporary home, place `unrelated launcher` in `$XDG_BIN_HOME/claude-guarded` and run `install.sh`; the prior version exits 0 and replaces it. In another temporary home, set settings to `{invalid`; the prior installer exits nonzero after creating `config.env`. Removing the fake original `claude` before `--with-claude-shim` produced a self-referencing shim. No real Claude binary was invoked.
+- **Expected / actual:** Detect conflicts and invalid input before writing; the prior installer overwrote or left partial state.
+- **Root cause:** Original `install.sh:60-90` performs copies and writes before validating settings or existing bin names, and `:49,88-90` does not require an original executable for the shim. The initial v0.2.0 code retained these paths.
+- **Fix / commit / regression:** Preflight settings and command names, require an original executable for the shim, commit `93e89eb`. Tests `test_first_install_preserves_unrelated_mode_command`, `test_invalid_settings_stop_before_installation`, and `test_shim_requires_original_binary` pass.
+- **Residual risk:** A legacy installation without command snapshots must be upgraded once before later command changes can be detected. A same-user process can modify local installation files; this is outside the threat model's integrity guarantee.
+
+## CCTG-006 — Rollback can overwrite a later Claude launcher
+
+- **Summary / severity:** P1, medium. `--restore-backup` can discard changes to an original `claude` executable even when no shim was installed, or overwrite a replacement after a shim was changed.
+- **Affected version / prerequisites:** Original `3007550` through initial v0.2.0 commit `0a403ac`; an existing executable was backed up, then modified or substituted before rollback.
+- **Safe reproduction:** In a temporary home with a fake `claude`, install without a shim, edit the fake launcher, then uninstall with `--restore-backup`; the prior implementation restores the old bytes. In a shim installation, replace the shim with a fake regular file before rollback; the prior implementation overwrites it. No real client or user file was touched.
+- **Expected / actual:** Preserve later user changes or refuse conflicting rollback; the prior implementation overwrote them.
+- **Root cause:** Original `install.sh:56-57` backs up `claude` even without creating a shim; `bin/ccguard:86-90` restores the backup without checking the current target. The initial v0.2.0 code retained these paths.
+- **Fix / commit / regression:** Back up `claude` only when creating a shim and reject restore if the shim was replaced, commit `93e89eb`. Tests `test_restore_does_not_overwrite_original_claude_without_shim` and `test_restore_refuses_replaced_shim` pass.
+- **Residual risk:** A legacy installation may already contain a backup made by the older installer. A conflicting restore now fails and requires deliberate user cleanup.
+
+## CCTG-007 — Reinstall or uninstall removes a changed mode launcher
+
+- **Summary / severity:** P1, medium. An installed `claude-bare` or similar launcher changed after installation can be silently overwritten on reinstall or deleted on uninstall.
+- **Affected version / prerequisites:** Original `3007550` through the initial v0.2.0 code; a user or another tool changes one of the mode-specific command files after installation.
+- **Safe reproduction:** Install into a temporary bin directory with a fake Claude executable, replace `claude-bare` with the text `replacement mode launcher`, then rerun the installer or `ccguard uninstall`. The prior implementation overwrites or deletes that file. No real launcher is used.
+- **Expected / actual:** Detect the changed file and stop for user resolution; the prior implementation removed it silently.
+- **Root cause:** `install.sh:79-82` and `bin/ccguard:93-95` copy or remove command files without checking whether they still match the installed version.
+- **Fix / commit / regression:** Store installed command snapshots and compare them before reinstall or uninstall, commit `5ce23c5`. The added `test_reinstall_and_uninstall_preserve_changed_mode_command` first failed, then passed after the fix.
+- **Residual risk:** Snapshot comparison detects accidental edits but cannot resist a same-user malicious process that changes both files and snapshots. Manual cleanup is needed after a deliberate launcher replacement.
+
+Other design and compatibility issues, including path quoting, probe error disclosure, test portability, and known Shell evasion cases, are documented in `REVIEW.md` and tested where feasible. These are project self-audit findings; no external project vulnerability was probed or reported.

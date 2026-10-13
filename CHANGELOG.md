@@ -6,7 +6,9 @@
 - Made malformed input, unavailable checker, and checker crashes block locally; configured Claude Code v2.1.295+ to block hook launch failures and timeouts.
 - Removed raw command text from gate logs and relay error bodies from probe output.
 - Preserved co-located user hooks, quoted installation paths, protected shim targets, and prevented backup restore over later settings edits.
+- Added preflight validation for settings and command-name collisions; prevented rollback from overwriting a later Claude launcher. Reinstall and uninstall refuse to remove a changed mode launcher.
 - Added isolated offline regression cases, original-versus-current records, a threat model, review findings, CI, and full Chinese/English documentation.
+- Added a deterministic fake-agent pipeline for untrusted text and a stub timeout check, clearly separate from real-model testing.
 
 The release has no real-model injection efficacy measurement and no real Termux or Claude Code integration run.
 

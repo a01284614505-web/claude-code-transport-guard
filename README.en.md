@@ -18,7 +18,7 @@ claude-guarded
 
 `claude-guarded` appends the defensive prompt and leaves the local Bash gate on. `claude-bare` replaces the system prompt with a minimal one and turns this project's prompt anchor and gate off. `claude-raw` uses an empty custom system prompt and also turns them off; tool use may become unreliable. Both unguarded modes still use Claude Code's own permissions. `claude-probe run` makes an explicit API request with a random marker; a clean echo does not prove relay integrity. It may store the returned text locally and was not run for this release.
 
-To opt into a `claude` shim, run `./install.sh --with-claude-shim`. The installer refuses to replace a symlink owned by something else. `ccguard disable` and `ccguard enable` change the global state without deleting hooks. `ccguard uninstall` removes only this project's handlers and files. `ccguard uninstall --restore-backup` restores the pre-install settings and shim, but refuses to overwrite settings modified since install; use plain uninstall to preserve later edits.
+To opt into a `claude` shim, run `./install.sh --with-claude-shim`. The installer refuses to replace a symlink owned by something else or a same-named unrelated launcher. `ccguard disable` and `ccguard enable` change the global state without deleting hooks. `ccguard uninstall` removes only this project's handlers and files. `ccguard uninstall --restore-backup` restores the pre-install settings and shim, but refuses to overwrite settings modified since install. Reinstall or uninstall may also stop if an installed launcher has changed; inspect and resolve that conflict manually.
 
 ## Scope, rules, and tests
 
@@ -31,8 +31,9 @@ bash tests/test-termux-compat.sh
 python3 tests/test-settings.py
 python3 -m unittest discover -s tests -p 'test_v2_regression.py' -v
 python3 tests/run_cases.py --compare-original --output docs/research/offline-results.json
+python3 tests/run_agent_sim.py --output docs/research/agent-results.json
 ```
 
-The original comparison requires commit `3007550` in local Git history. The offline harness **never executes candidate commands** and does not call a model. On its 19 selected proposals, the original missed 6 of 14 high-risk samples; this version missed 4 of 14. Neither blocked the 5 benign samples. These counts are not prompt-injection blocking rates or representative production estimates. Read the [method](docs/research/METHOD.md), [results](docs/research/RESULTS.md), and [confirmed self-audit findings](docs/research/FINDINGS.md) for the limits.
+The original comparison requires commit `3007550` in local Git history. The offline harness **never executes candidate commands** and does not call a model. On its 19 selected static proposals, the original missed 6 of 14 high-risk samples; this version missed 4 of 14. Neither blocked the 5 benign samples. Four additional deterministic fake-agent cases exercise untrusted text flowing into candidate commands and the Hook. These counts are not prompt-injection blocking rates or representative production estimates. Read the [method](docs/research/METHOD.md), [results](docs/research/RESULTS.md), and [confirmed self-audit findings](docs/research/FINDINGS.md) for the limits.
 
 Report security issues privately as described in [SECURITY.md](SECURITY.md). Contributions and local validation are described in [CONTRIBUTING.md](CONTRIBUTING.md). Licensed under [MIT](LICENSE).

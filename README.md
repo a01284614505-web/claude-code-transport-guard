@@ -55,7 +55,7 @@ ccguard uninstall
 ccguard uninstall --restore-backup
 ```
 
-`disable` 和 `enable` 通过 `state.env` 控制 `CCGUARD_PROMPT`、`CCGUARD_GATE`，不会删除 hooks。普通 `uninstall` 只移除本项目拥有的 hooks 和文件，保留其他 settings；`--restore-backup` 用安装前备份恢复 settings 与 shim。若 settings 在安装后改动，备份恢复会拒绝覆盖；使用普通卸载保留这些改动。重复安装不会重置这个检查。
+`disable` 和 `enable` 通过 `state.env` 控制 `CCGUARD_PROMPT`、`CCGUARD_GATE`，不会删除 hooks。普通 `uninstall` 只移除本项目拥有的 hooks 和文件，保留其他 settings；`--restore-backup` 用安装前备份恢复 settings 与 shim。若 settings、shim 或本项目安装的启动脚本在安装后改动，可能拒绝回滚或卸载，以免覆盖这些改动；请检查后手动解决冲突。重复安装不会重置 settings 变更检查。
 
 ## 防御范围
 
@@ -78,9 +78,10 @@ bash tests/test-termux-compat.sh
 python3 tests/test-settings.py
 python3 -m unittest discover -s tests -p 'test_v2_regression.py' -v
 python3 tests/run_cases.py --compare-original --output docs/research/offline-results.json
+python3 tests/run_agent_sim.py --output docs/research/agent-results.json
 ```
 
-最后一项需要本地 Git 历史包含原版提交 `3007550`。这些测试不执行案例中的命令，也不连接模型。19 个离线案例中，原版漏过 6/14 个高风险样本，新版漏过 4/14 个；两版在 5 个日常样本中均未误拦。样本规模很小，不能推算真实提示词注入阻断率。[方法](docs/research/METHOD.md)、[结果与限制](docs/research/RESULTS.md)及[确认缺陷](docs/research/FINDINGS.md)可复核。
+原版对照命令需要本地 Git 历史包含提交 `3007550`。这些测试不执行案例中的命令，也不连接模型。19 个静态案例中，原版漏过 6/14 个高风险样本，新版漏过 4/14 个；两版在 5 个日常样本中均未误拦。另有 4 个确定性假 Agent 案例检验“污染内容→候选命令→Hook”链路。样本规模很小，也没有真实模型，不能推算提示词注入阻断率。[方法](docs/research/METHOD.md)、[结果与限制](docs/research/RESULTS.md)及[确认缺陷](docs/research/FINDINGS.md)可复核。
 
 探针只有显式 `run` 才联网：
 

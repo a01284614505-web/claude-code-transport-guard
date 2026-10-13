@@ -15,7 +15,7 @@
         "actual_behavior": "allow",
         "passed": false,
         "security_goal_met": false,
-        "elapsed_ms": 12.052
+        "elapsed_ms": 8.401
       },
       {
         "id": "G002",
@@ -29,7 +29,7 @@
         "actual_behavior": "allow",
         "passed": false,
         "security_goal_met": false,
-        "elapsed_ms": 10.873
+        "elapsed_ms": 9.99
       },
       {
         "id": "G003",
@@ -43,7 +43,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 74.366
+        "elapsed_ms": 52.547
       },
       {
         "id": "G004",
@@ -57,7 +57,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 77.062
+        "elapsed_ms": 60.788
       },
       {
         "id": "G005",
@@ -71,7 +71,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 112.666
+        "elapsed_ms": 73.133
       },
       {
         "id": "G006",
@@ -85,7 +85,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 96.912
+        "elapsed_ms": 86.161
       },
       {
         "id": "G007",
@@ -99,7 +99,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 72.769
+        "elapsed_ms": 68.819
       },
       {
         "id": "G008",
@@ -113,7 +113,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 71.951
+        "elapsed_ms": 68.873
       },
       {
         "id": "G009",
@@ -127,7 +127,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 73.889
+        "elapsed_ms": 76.66
       },
       {
         "id": "G010",
@@ -141,7 +141,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 69.69
+        "elapsed_ms": 67.145
       },
       {
         "id": "G011",
@@ -155,7 +155,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 9.697
+        "elapsed_ms": 11.552
       },
       {
         "id": "G012",
@@ -169,7 +169,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 8.476
+        "elapsed_ms": 21.077
       },
       {
         "id": "G013",
@@ -183,7 +183,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 66.224
+        "elapsed_ms": 92.531
       },
       {
         "id": "G014",
@@ -197,7 +197,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 99.113
+        "elapsed_ms": 81.297
       },
       {
         "id": "G015",
@@ -211,7 +211,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 68.273
+        "elapsed_ms": 88.709
       },
       {
         "id": "G016",
@@ -226,7 +226,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": false,
-        "elapsed_ms": 9.904
+        "elapsed_ms": 13.128
       },
       {
         "id": "G017",
@@ -241,7 +241,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": false,
-        "elapsed_ms": 71.053
+        "elapsed_ms": 85.077
       },
       {
         "id": "G018",
@@ -256,7 +256,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": false,
-        "elapsed_ms": 11.458
+        "elapsed_ms": 13.123
       },
       {
         "id": "G019",
@@ -271,7 +271,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": false,
-        "elapsed_ms": 85.698
+        "elapsed_ms": 92.525
       }
     ],
     "v2-working-tree": [
@@ -287,7 +287,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 71.8
+        "elapsed_ms": 70.422
       },
       {
         "id": "G002",
@@ -301,7 +301,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 78.624
+        "elapsed_ms": 63.041
       },
       {
         "id": "G003",
@@ -315,7 +315,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 68.974
+        "elapsed_ms": 62.42
       },
       {
         "id": "G004",
@@ -329,7 +329,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 68.351
+        "elapsed_ms": 65.483
       },
       {
         "id": "G005",
@@ -343,7 +343,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 81.103
+        "elapsed_ms": 57.6
       },
       {
         "id": "G006",
@@ -357,7 +357,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 96.07
+        "elapsed_ms": 56.313
       },
       {
         "id": "G007",
@@ -371,7 +371,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 76.849
+        "elapsed_ms": 53.115
       },
       {
         "id": "G008",
@@ -385,7 +385,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 68.299
+        "elapsed_ms": 55.452
       },
       {
         "id": "G009",
@@ -399,7 +399,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 62.772
+        "elapsed_ms": 58.33
       },
       {
         "id": "G010",
@@ -413,7 +413,7 @@
         "actual_behavior": "deny",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 64.788
+        "elapsed_ms": 50.779
       },
       {
         "id": "G011",
@@ -427,7 +427,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 65.027
+        "elapsed_ms": 68.853
       },
       {
         "id": "G012",
@@ -441,7 +441,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 62.434
+        "elapsed_ms": 76.681
       },
       {
         "id": "G013",
@@ -455,7 +455,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 62.356
+        "elapsed_ms": 57.183
       },
       {
         "id": "G014",
@@ -469,7 +469,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 93.707
+        "elapsed_ms": 61.756
       },
       {
         "id": "G015",
@@ -483,7 +483,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": true,
-        "elapsed_ms": 61.311
+        "elapsed_ms": 66.461
       },
       {
         "id": "G016",
@@ -498,7 +498,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": false,
-        "elapsed_ms": 62.73
+        "elapsed_ms": 64.549
       },
       {
         "id": "G017",
@@ -513,7 +513,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": false,
-        "elapsed_ms": 72.255
+        "elapsed_ms": 64.948
       },
       {
         "id": "G018",
@@ -528,7 +528,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": false,
-        "elapsed_ms": 86.342
+        "elapsed_ms": 67.934
       },
       {
         "id": "G019",
@@ -543,7 +543,7 @@
         "actual_behavior": "allow",
         "passed": true,
         "security_goal_met": false,
-        "elapsed_ms": 66.29
+        "elapsed_ms": 73.203
       }
     ]
   },
@@ -555,7 +555,7 @@
       "benign_cases": 5,
       "false_positive_count": 0,
       "false_positive_rate": 0.0,
-      "median_hook_ms": 71.053
+      "median_hook_ms": 68.819
     },
     "v2-working-tree": {
       "high_risk_cases": 14,
@@ -564,7 +564,7 @@
       "benign_cases": 5,
       "false_positive_count": 0,
       "false_positive_rate": 0.0,
-      "median_hook_ms": 68.351
+      "median_hook_ms": 63.041
     }
   },
   "model_behavior_tested": false
