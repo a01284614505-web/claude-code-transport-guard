@@ -83,6 +83,16 @@ uninstall() {
     settings_backup=${SETTINGS_BACKUP:-}
     claude_backup=${CLAUDE_BACKUP:-}
   fi
+  local expected_bin_dir="$install_dir/backups/installed-bin" name
+  for name in ccguard claude-guarded claude-bare claude-raw claude-probe; do
+    if [ -e "$bin_dir/$name" ] || [ -L "$bin_dir/$name" ]; then
+      if [ -L "$bin_dir/$name" ] ||
+         ! cmp -s "$bin_dir/$name" "$expected_bin_dir/$name"; then
+        printf 'Command changed since install; refusing uninstall: %s\n' "$bin_dir/$name" >&2
+        exit 1
+      fi
+    fi
+  done
   if [ "$restore" = "--restore-backup" ] && [ -n "$claude_backup" ] &&
      [ -f "$claude_backup" ] &&
      { [ ! -L "$bin_dir/claude" ] ||

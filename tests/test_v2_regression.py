@@ -229,6 +229,17 @@ class InstallRegression(unittest.TestCase):
         self.assertNotEqual(0, result.returncode)
         self.assertEqual("replacement launcher\n", self.fake.read_text())
 
+    def test_reinstall_and_uninstall_preserve_changed_mode_command(self):
+        self.assertEqual(0, self.run_cmd("bash", str(ROOT / "install.sh")).returncode)
+        launcher = self.bin_dir / "claude-bare"
+        launcher.write_text("replacement mode launcher\n")
+        result = self.run_cmd("bash", str(ROOT / "install.sh"))
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual("replacement mode launcher\n", launcher.read_text())
+        result = self.run_cmd(str(self.bin_dir / "ccguard"), "uninstall")
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual("replacement mode launcher\n", launcher.read_text())
+
 
 class ProbeRegression(unittest.TestCase):
     def test_relay_error_body_never_echoed(self):

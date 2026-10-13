@@ -43,6 +43,17 @@ if [ ! -f "$install_dir/manifest.env" ]; then
     fi
   done
 fi
+expected_bin_dir="$install_dir/backups/installed-bin"
+if [ -d "$expected_bin_dir" ]; then
+  for name in ccguard claude-guarded claude-bare claude-raw claude-probe; do
+    if { [ -e "$bin_dir/$name" ] || [ -L "$bin_dir/$name" ]; } &&
+       { [ -L "$bin_dir/$name" ] ||
+         ! cmp -s "$bin_dir/$name" "$expected_bin_dir/$name"; }; then
+      printf 'Refusing to replace a changed command: %s\n' "$bin_dir/$name" >&2
+      exit 1
+    fi
+  done
+fi
 
 stamp=$(date +%Y%m%d-%H%M%S)
 previous_original=""
@@ -110,6 +121,10 @@ done
 for file in "$install_dir"/lib/*.sh "$bin_dir"/ccguard "$bin_dir"/claude-guarded "$bin_dir"/claude-bare "$bin_dir"/claude-raw "$bin_dir"/claude-probe; do
   [ -f "$file" ] || continue
   sed -i "1s|^#!/usr/bin/env bash$|#!$bash_bin|" "$file"
+done
+mkdir -p "$expected_bin_dir"
+for name in ccguard claude-guarded claude-bare claude-raw claude-probe; do
+  cp -p "$bin_dir/$name" "$expected_bin_dir/$name"
 done
 if [ "$with_shim" -eq 1 ]; then
   if [ -e "$bin_dir/claude" ] || [ -L "$bin_dir/claude" ]; then
