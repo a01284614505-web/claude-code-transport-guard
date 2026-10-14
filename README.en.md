@@ -4,7 +4,7 @@
 
 Version 0.2.0 adds a local, narrow `Bash` PreToolUse gate for Claude Code sessions using an untrusted API relay. It checks literal command text for selected dangerous patterns before execution. It does not proxy traffic, authenticate API messages, or sandbox a shell. The prompt contract and anchor are advisory; a relay can read or rewrite them.
 
-Claude Code **v2.1.295 or later** is needed for the installed `onFailure: "block"` setting to block hook startup errors and timeouts. This release was tested offline on Linux with fake commands, not with a real Claude Code client or on an Android Termux device. Keep Claude Code's own permissions enabled.
+Claude Code **v2.1.295 or later** is needed for the installed `onFailure: "block"` setting to block hook startup errors and timeouts. Offline rule cases ran on Linux. A real Claude Code v2.1.299 client was also tested against a local synthetic API for allow, deny, startup-failure, and timeout paths. No real model or Android Termux device was tested. Keep Claude Code's own permissions enabled.
 
 ## Install and modes
 
@@ -34,6 +34,12 @@ python3 tests/run_cases.py --compare-original --output docs/research/offline-res
 python3 tests/run_agent_sim.py --output docs/research/agent-results.json
 ```
 
-The original comparison requires commit `3007550` in local Git history. The offline harness **never executes candidate commands** and does not call a model. On its 19 selected static proposals, the original missed 6 of 14 high-risk samples; this version missed 4 of 14. Neither blocked the 5 benign samples. Four additional deterministic fake-agent cases exercise untrusted text flowing into candidate commands and the Hook. These counts are not prompt-injection blocking rates or representative production estimates. Read the [method](docs/research/METHOD.md), [results](docs/research/RESULTS.md), and [confirmed self-audit findings](docs/research/FINDINGS.md) for the limits.
+An optional real-client test uses a local fake API and requires Claude Code v2.1.295+:
+
+```bash
+python3 tests/test_real_client.py --client /path/to/claude --output docs/research/real-client-results.json
+```
+
+The original comparison requires commit `3007550` in local Git history. The static and fake-agent harnesses **never execute candidate commands** and do not call a model. On 19 selected static proposals, the original missed 6 of 14 high-risk samples; this version missed 4 of 14. Neither blocked the 5 benign samples. Four deterministic fake-agent cases exercise untrusted text flowing into candidate commands and the Hook. The real-client test executes only a harmless command in a disposable directory and targets a fake `.ssh` fixture for the denied command; its four lifecycle cases passed. These counts are not prompt-injection blocking rates or representative production estimates. Read the [method](docs/research/METHOD.md), [results](docs/research/RESULTS.md), and [confirmed self-audit findings](docs/research/FINDINGS.md) for the limits.
 
 Report security issues privately as described in [SECURITY.md](SECURITY.md). Contributions and local validation are described in [CONTRIBUTING.md](CONTRIBUTING.md). Licensed under [MIT](LICENSE).

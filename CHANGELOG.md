@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — 2026-10-14
+
+- Added a reproducible, optional real-client Hook lifecycle test using Claude Code v2.1.299 and a local synthetic API. All four allow, deny, missing-Hook, and timeout cases passed on Linux; no real model or Android device was involved.
+
 ## 0.2.0 — 2026-10-13
 
 - Removed the separate Bash keyword shortcut so all proposals reach the same checker.

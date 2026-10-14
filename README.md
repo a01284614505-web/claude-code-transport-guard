@@ -4,7 +4,7 @@
 
 面向 Claude Code 的本地 Bash 防护工具（v0.2.0）。它不部署代理，不改变 API 网络路径，也不提供传输完整性；它在 Bash 工具执行前拦截少量已知高危命令形态。Prompt 契约和锚点只是提醒，不能验证消息来源或保证阻止提示词注入。
 
-**适用边界：** 本次在 Linux 上用离线假命令测试。Claude Code v2.1.295 起支持本项目使用的 `onFailure: "block"`，可在 Hook 启动失败或超时时阻断 Bash 调用；旧版不能依赖这一故障保护。尚未在真实 Claude Code 或 Android Termux 设备上验证。请保留 Claude Code 自身权限确认，不要将本工具当作 Shell 沙箱。
+**适用边界：** 已在 Linux 上测试离线规则，并用真实 Claude Code v2.1.299 客户端连接本机假 API 验证 Hook 的允许、拒绝、启动失败及超时路径。Claude Code v2.1.295 起支持本项目使用的 `onFailure: "block"`；旧版不能依赖这一故障保护。尚未在真实模型或 Android Termux 设备上验证。请保留 Claude Code 自身权限确认，不要将本工具当作 Shell 沙箱。
 
 ## 模式
 
@@ -81,7 +81,13 @@ python3 tests/run_cases.py --compare-original --output docs/research/offline-res
 python3 tests/run_agent_sim.py --output docs/research/agent-results.json
 ```
 
-原版对照命令需要本地 Git 历史包含提交 `3007550`。这些测试不执行案例中的命令，也不连接模型。19 个静态案例中，原版漏过 6/14 个高风险样本，新版漏过 4/14 个；两版在 5 个日常样本中均未误拦。另有 4 个确定性假 Agent 案例检验“污染内容→候选命令→Hook”链路。样本规模很小，也没有真实模型，不能推算提示词注入阻断率。[方法](docs/research/METHOD.md)、[结果与限制](docs/research/RESULTS.md)及[确认缺陷](docs/research/FINDINGS.md)可复核。
+可选的真实客户端测试需要 Claude Code v2.1.295+，使用本机假 API，不调用真实模型：
+
+```bash
+python3 tests/test_real_client.py --client /path/to/claude --output docs/research/real-client-results.json
+```
+
+原版对照命令需要本地 Git 历史包含提交 `3007550`。静态与假 Agent 测试不执行案例中的命令，也不连接模型。19 个静态案例中，原版漏过 6/14 个高风险样本，新版漏过 4/14 个；两版在 5 个日常样本中均未误拦。另有 4 个确定性假 Agent 案例检验“污染内容→候选命令→Hook”链路。真实客户端测试在一次性目录执行安全命令，危险命令仅针对一次性假 `.ssh`，4/4 个 Hook 生命周期场景符合预期。样本规模很小，也没有真实模型，不能推算提示词注入阻断率。[方法](docs/research/METHOD.md)、[结果与限制](docs/research/RESULTS.md)及[确认缺陷](docs/research/FINDINGS.md)可复核。
 
 探针只有显式 `run` 才联网：
 
