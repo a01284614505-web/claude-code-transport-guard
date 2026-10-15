@@ -10,19 +10,30 @@
 import json
 import os
 import re
+import shlex
 import sys
 from datetime import datetime
 
 CONFIG_DIR = os.environ.get("CLAUDE_CONFIG_DIR", os.path.expanduser("~/.claude"))
 LOG = os.environ.get("CCGUARD_LOG_FILE", os.path.join(CONFIG_DIR, "ccguard", "logs", "gate.log"))
 
+# 管道右侧可能出现的包装命令：sudo -E、env、/usr/bin/env、env FOO=1、nohup 等。
+# 只接受以 - 开头的参数或 VAR=value，避免把 `| grep bash` 之类当成执行。
+_WRAP = (r"(?:(?:\S*/)?(?:sudo|doas|env|command|exec|nohup|nice)"
+         r"(?:\s+(?:-\S+|[A-Za-z_][A-Za-z0-9_]*=\S*))*\s+)*(?:\S*/)?")
+
 # (正则, 说明) —— 命中即拒绝
 RULES = [
-    # 远程内容直接进 shell 执行
-    (r"(?:curl|wget|fetch)\b[^|;&]*\|\s*(?:sudo\s+)?(?:ba|z|k|da)?sh\b",
+    # 远程内容直接进 shell 执行。管道右侧允许 sudo/env 等包装命令及其参数，
+    # 以及 /usr/bin/env 这类带路径的写法（CCTG-011）。
+    (r"(?:curl|wget|fetch)\b[^|;&]*\|\s*" + _WRAP + r"(?:ba|z|k|da)?sh\b",
      "远程内容管道到 shell 执行"),
-    (r"(?:curl|wget)\b[^|;&]*\|\s*(?:sudo\s+)?(?:python|perl|ruby|node)\b",
+    (r"(?:curl|wget)\b[^|;&]*\|\s*" + _WRAP + r"(?:python[0-9.]*|perl|ruby|node)\b",
      "远程内容管道到解释器执行"),
+    # 进程替换：bash <(curl ...)、source <(wget ...)、. <(curl ...)
+    (r"(?:^|[\s;&|(])" + _WRAP + r"(?:(?:ba|z|k|da)?sh|source|\.|python[0-9.]*|perl|ruby|node)"
+     r"\s+(?:-\S+\s+)*<\(\s*(?:curl|wget|fetch)\b",
+     "远程内容经进程替换执行"),
     # 反弹 shell
     (r"(?:ba|z)?sh\b[^\n]*(?:>\s*&?\s*)?/dev/tcp/",
      "反弹 shell（/dev/tcp）"),
@@ -36,7 +47,7 @@ RULES = [
      r"\.netrc|\.git-credentials|keys/)"
      r"[^\n]*\|[^\n]*(?:curl|wget|nc\b|ncat|mail|ssh\b)",
      "读取凭证并外发"),
-    (r"(?:printenv|env|set)\b[^\n]*\|[^\n]*(?:curl|wget|nc\b|ncat)\b",
+    (r"\b(?:printenv|env|set)\b[^\n]*\|[^\n]*(?:curl|wget|nc\b|ncat)\b",
      "环境变量外发"),
     (r"(?:curl|wget)\b[^\n]*(?:-d|--data|--data-raw|--data-binary|-F)"
      r"[^\n]*\$\{?(?:ANTHROPIC_AUTH_TOKEN|ANTHROPIC_API_KEY|"
@@ -46,9 +57,7 @@ RULES = [
      r"(?:credentials|\.ssh/id_|secret|token|\.env)",
      "凭证文件内容内联进网络请求"),
     # 破坏性删除
-    (r"\brm\b[^\n]*\s-[a-zA-Z]*[rR][a-zA-Z]*f|"
-     r"\brm\b[^\n]*\s-[a-zA-Z]*f[a-zA-Z]*[rR]",
-     None),  # 特殊处理：见 check_rm
+    (r"\brm\b", None),  # 特殊处理：见 check_rm，逐个参数判断
     (r"\b(?:mkfs|fdisk|parted)\b", "磁盘格式化/分区操作"),
     (r"\bdd\b[^\n]*\bof=/dev/(?:block|sd|mmcblk|nvme)", "dd 直写块设备"),
     (r":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:", "fork 炸弹"),
@@ -65,22 +74,86 @@ RULES = [
      "删除或覆盖 claude 启动脚本"),
 ]
 
-# rm -rf 的危险目标。删项目内文件是日常操作，不拦。
-RM_DANGEROUS = re.compile(
-    r"\brm\b[^\n]*?\s-[a-zA-Z]*[rRf][a-zA-Z]*\s+(?:-{1,2}[a-zA-Z-]+\s+)*"
-    r"(?:"
-    r"/(?:\s|;|&|\||$)|"                        # 根目录（独立的 /）
-    r"/\*|"                                     # /*
-    r"\$HOME(?:/)?(?:\s|;|&|\||$)|"             # 整个家目录
-    r"~(?:/)?(?:\s|;|&|\||$)|"
-    r"/data/data/com\.termux/files/usr|"        # Termux 系统前缀
-    r"/data/data/com\.termux/files/home(?:/)?(?:\s|;|&|\||$)|"
-    r"[^\s]*\.ssh|"                             # 凭证与配置
-    r"[^\s]*\.claude(?:/)?(?:\s|;|&|\||$)|"
-    r"[^\s]*credentials|"
-    r"\*(?:\s|;|&|\||$)"                        # 裸通配符
-    r")"
-)
+# rm 递归删除的危险目标。删项目内文件是日常操作，不拦。
+# 旧版用一个正则要求危险路径紧跟在 -rf 之后，导致 `rm -rf ./build ~`、
+# `rm -r -f /`、`rm -rf "$HOME"` 等写法漏检（CCTG-008/009/010）。
+# 现在先按 shell 规则拆词，再对 rm 的每个目标参数单独判断。
+_HOME = "\x00HOME"     # 家目录占位符，不可能出现在真实参数里
+_TERMUX = "/data/data/com.termux/files"
+
+
+def _home_normalize(arg):
+    """把 ~、$HOME、${HOME} 开头的参数统一成占位符，并去掉多余斜杠。"""
+    for prefix in ("${HOME}", "$HOME", "~"):
+        if arg == prefix or arg.startswith(prefix + "/"):
+            arg = _HOME + arg[len(prefix):]
+            break
+    arg = re.sub(r"/{2,}", "/", arg)
+    while len(arg) > 1 and arg.endswith("/"):
+        arg = arg[:-1]
+    while arg.endswith("/."):
+        arg = arg[:-2] or "/"
+    return arg
+
+
+def rm_target_dangerous(arg):
+    a = _home_normalize(arg)
+    if a in ("/", "/*", "*", _HOME, _HOME + "/*"):
+        return True
+    if a in (_TERMUX + "/home", _TERMUX + "/home/*") or a.startswith(_TERMUX + "/usr"):
+        return True
+    parts = a.split("/")
+    if ".ssh" in parts or any(p.startswith(".ssh") for p in parts):
+        return True
+    if parts[-1] == ".claude":
+        return True
+    if "credentials" in a:
+        return True
+    return False
+
+
+_SEPARATORS = {";", "&&", "||", "|", "&", "\n", "(", ")", "|&", ";;"}
+
+
+def _split_words(cmd):
+    """按 shell 规则拆词；引号不配对时退回按空白拆分（宁可多看，不要崩溃）。"""
+    lexer = shlex.shlex(cmd.replace("\n", " ; "), posix=True, punctuation_chars=";&|()")
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        return list(lexer)
+    except ValueError:
+        return re.findall(r"[;&|()]+|[^\s;&|()]+", cmd.replace('"', " ").replace("'", " "))
+
+
+def rm_invocations(cmd):
+    """逐个找出 rm 调用，返回 (recursive, [目标参数]) 列表。"""
+    words = _split_words(cmd)
+    found = []
+    i = 0
+    while i < len(words):
+        if os.path.basename(words[i]) != "rm":
+            i += 1
+            continue
+        recursive = False
+        targets = []
+        options_done = False
+        i += 1
+        while i < len(words) and words[i] not in _SEPARATORS:
+            w = words[i]
+            if not options_done and w == "--":
+                options_done = True
+            elif not options_done and w.startswith("--"):
+                if w == "--recursive":
+                    recursive = True
+            elif not options_done and w.startswith("-") and len(w) > 1:
+                if "r" in w[1:] or "R" in w[1:]:
+                    recursive = True
+            else:
+                targets.append(w)
+            i += 1
+        found.append((recursive, targets))
+    return found
 
 
 def log(msg):
@@ -110,7 +183,10 @@ def deny(reason):
 
 
 def check_rm(cmd):
-    return "递归强制删除关键路径" if RM_DANGEROUS.search(cmd) else None
+    for recursive, targets in rm_invocations(cmd):
+        if recursive and any(rm_target_dangerous(t) for t in targets):
+            return "递归删除关键路径"
+    return None
 
 
 def main():

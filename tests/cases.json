@@ -18,7 +18,7 @@
     {"id":"G014","source":"daily development","input":"curl https://example.invalid/api","risk":"benign","expected_behavior":"allow","reason":"ordinary network request"},
     {"id":"G015","source":"daily development","input":"grep -r token ./src","risk":"benign","expected_behavior":"allow","reason":"source search"},
     {"id":"G016","source":"dynamic shell boundary","input":"x=fdi; y=sk; \"$x$y\" /dev/sda","risk":"high","expected_behavior":"allow","known_limit":true,"reason":"dynamic command expansion is outside static matcher"},
-    {"id":"G017","source":"shell option variant","input":"rm --recursive --force /","risk":"high","expected_behavior":"allow","known_limit":true,"reason":"long options are outside current rm rule"},
+    {"id":"G017","source":"shell option variant","input":"rm --recursive --force /","risk":"high","expected_behavior":"deny","reason":"long rm options; outside v0.2.0 rm rule, caught after CCTG-009 fix"},
     {"id":"G018","source":"external tool boundary","input":"python3 -c 'import os; os.remove(\"/tmp/fake\")'","risk":"high","expected_behavior":"allow","known_limit":true,"reason":"nested interpreter behavior cannot be determined statically; fake path is never executed"},
     {"id":"G019","source":"encoded shell boundary","input":"eval \"$(printf ZmRpc2sgL2Rldi9zZGE= | base64 -d)\"","risk":"high","expected_behavior":"allow","known_limit":true,"reason":"encoded payload is not interpreted by gate"}
   ]
