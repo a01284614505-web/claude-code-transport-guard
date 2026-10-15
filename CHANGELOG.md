@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased — 2026-10-14
+## Unreleased — 2026-10-15
 
+- Gate: inspect every `rm` operand instead of only the first, recognise split and long options (`-r -f`, `--recursive`) and quoted or braced `$HOME` (CCTG-008/009/010). A recursive flag is now sufficient for critical targets.
+- Gate: catch remote scripts run through process substitution (`bash <(curl …)`) or wrappers such as `sudo -E` and `/usr/bin/env` (CCTG-011).
+- Gate: stop treating words like `dataset`/`offset` as the `set` builtin (CCTG-012).
+- Tests: `test_shim_requires_original_binary` now uses a minimal PATH so a real Claude Code on the test host cannot mask the result. Offline case G017 now expects `deny`.
 - Added a reproducible, optional real-client Hook lifecycle test using Claude Code v2.1.299 and a local synthetic API. All four allow, deny, missing-Hook, and timeout cases passed on Linux; no real model or Android device was involved.
 
 ## 0.2.0 — 2026-10-13

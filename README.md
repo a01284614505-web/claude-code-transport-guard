@@ -67,7 +67,7 @@ ccguard uninstall --restore-backup
 
 中转站可以读取、删除或重写请求中的 prompt，甚至伪造看似来自用户的消息。闸门在本地 Hook 执行，不经过中转站，但只看 Bash 工具调用的字面命令。动态变量、编码、脚本内部行为、Python/Node 等解释器、`Write`/`Edit` 和 MCP 工具可能绕过它；[已知漏检案例](docs/research/RESULTS.md)公开保留。命中后应阅读拦截原因，并由用户自行决定是否手动执行。
 
-规则在 [lib/gate_check.py](lib/gate_check.py) 的 `RULES` 与 `RM_DANGEROUS` 中。修改规则后运行全部离线测试，再重新安装更新本地副本；项目目前不提供运行时规则覆盖配置，以免引入另一条隐蔽的放行路径。
+规则在 [lib/gate_check.py](lib/gate_check.py) 的 `RULES` 与 `rm_target_dangerous` 中。`rm` 会先按 shell 规则拆词，再逐个检查删除目标。修改规则后运行全部离线测试，再重新安装更新本地副本；项目目前不提供运行时规则覆盖配置，以免引入另一条隐蔽的放行路径。
 
 ## 测试与研究证据
 
@@ -87,7 +87,7 @@ python3 tests/run_agent_sim.py --output docs/research/agent-results.json
 python3 tests/test_real_client.py --client /path/to/claude --output docs/research/real-client-results.json
 ```
 
-原版对照命令需要本地 Git 历史包含提交 `3007550`。静态与假 Agent 测试不执行案例中的命令，也不连接模型。19 个静态案例中，原版漏过 6/14 个高风险样本，新版漏过 4/14 个；两版在 5 个日常样本中均未误拦。另有 4 个确定性假 Agent 案例检验“污染内容→候选命令→Hook”链路。真实客户端测试在一次性目录执行安全命令，危险命令仅针对一次性假 `.ssh`，4/4 个 Hook 生命周期场景符合预期。样本规模很小，也没有真实模型，不能推算提示词注入阻断率。[方法](docs/research/METHOD.md)、[结果与限制](docs/research/RESULTS.md)及[确认缺陷](docs/research/FINDINGS.md)可复核。
+原版对照命令需要本地 Git 历史包含提交 `3007550`。静态与假 Agent 测试不执行案例中的命令，也不连接模型。19 个静态案例中，原版漏过 6/14 个高风险样本，v0.2.0 漏过 4/14 个，当前未发布代码漏过 3/14 个；两版在 5 个日常样本中均未误拦。另有 4 个确定性假 Agent 案例检验“污染内容→候选命令→Hook”链路。真实客户端测试在一次性目录执行安全命令，危险命令仅针对一次性假 `.ssh`，4/4 个 Hook 生命周期场景符合预期。样本规模很小，也没有真实模型，不能推算提示词注入阻断率。[方法](docs/research/METHOD.md)、[结果与限制](docs/research/RESULTS.md)及[确认缺陷](docs/research/FINDINGS.md)可复核。
 
 探针只有显式 `run` 才联网：
 

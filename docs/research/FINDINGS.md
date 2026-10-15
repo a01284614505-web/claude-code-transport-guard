@@ -72,4 +72,46 @@ These are self-audit findings against original commit `3007550`, with commands i
 - **Fix / commit / regression:** Store installed command snapshots and compare them before reinstall or uninstall, commit `5ce23c5`. The added `test_reinstall_and_uninstall_preserve_changed_mode_command` first failed, then passed after the fix.
 - **Residual risk:** Snapshot comparison detects accidental edits but cannot resist a same-user malicious process that changes both files and snapshots. Manual cleanup is needed after a deliberate launcher replacement.
 
+## CCTG-008 — Critical rm target ignored when not first
+
+- **Summary / severity:** P1, high impact / plausible. A recursive delete that names a harmless path before the home directory, root, or `.ssh` passed the gate, e.g. `rm -rf ./build ~`.
+- **Affected version / prerequisites:** `3007550` through v0.2.0 (`c622ea4`); guard enabled; a `Bash` proposal with several `rm` targets.
+- **Safe reproduction:** Pass `{"tool_name":"Bash","tool_input":{"command":"rm -rf ./build ~"}}` to an isolated `lib/gate_check.py`. Nothing is executed. v0.2.0 prints nothing (allow).
+- **Expected / actual:** Deny; v0.2.0 allows. `cd /tmp && rm -rf ./x /` is also allowed.
+- **Root cause:** `RM_DANGEROUS` only matched a critical path immediately after the option group, so later operands were never examined.
+- **Fix / regression:** Split the command into shell words with `shlex` and check every `rm` operand separately (`rm_invocations`, `rm_target_dangerous`). `test_rm_dangerous_target_in_any_position` failed first, then passed.
+- **Residual risk:** Words are split statically; variable expansion, globs that resolve to critical paths, `xargs rm`, and `find -delete` remain outside coverage.
+
+## CCTG-009 — Split and long rm options skipped the rm check
+
+- **Summary / severity:** P1. `rm -r -f /`, `rm -f -r ~`, and `rm --recursive --force /` passed. The last one was already listed as known limit G017.
+- **Affected version / prerequisites:** `3007550` through v0.2.0.
+- **Safe reproduction:** As above with `rm -r -f /`; v0.2.0 allows.
+- **Root cause:** The trigger regex required `r` and `f` in one option group, so the dedicated rm check never ran.
+- **Fix / regression:** Options are parsed per word (`-r`, `-R`, `--recursive`, combined groups, `--` end-of-options). A recursive flag alone is now enough when the target is critical, because `rm -r ~` deletes the home directory without `-f`. `test_rm_split_and_long_options` failed first, then passed; offline case G017 now expects `deny`.
+- **Residual risk:** Abbreviated GNU long options (e.g. `--recur`) are not recognised.
+
+## CCTG-010 — Quoted or braced $HOME not recognised
+
+- **Summary / severity:** P1. `rm -rf "$HOME"`, `rm -rf ${HOME}`, and `rm -rf "$HOME"/*` passed.
+- **Affected version / prerequisites:** `3007550` through v0.2.0.
+- **Root cause:** The regex only accepted an unquoted `$HOME` directly followed by a separator.
+- **Fix / regression:** Quotes are removed by shell-word splitting; `~`, `$HOME`, and `${HOME}` are normalised to one placeholder, trailing slashes collapsed, and `home/*` treated like `home`. `test_rm_quoted_home_forms` failed first, then passed.
+- **Residual risk:** Because quoting is removed, a literal directory named `~` (`rm -rf '~'`) is treated as the home directory, a deliberate false-positive trade-off. Other variables (`$USERPROFILE`, `$PWD/..`) are not resolved.
+
+## CCTG-011 — Remote script via process substitution or wrapper
+
+- **Summary / severity:** P1. `bash <(curl …)`, `source <(wget …)`, `curl … | sudo -E bash`, `curl … | env bash`, and `curl … | /usr/bin/env python3` passed.
+- **Affected version / prerequisites:** `3007550` through v0.2.0.
+- **Root cause:** Remote-exec rules required a pipe and allowed only a bare `sudo ` before the shell name.
+- **Fix / regression:** A shared `_WRAP` pattern accepts `sudo`/`doas`/`env`/`command`/`exec`/`nohup`/`nice` with dash options or `VAR=value`, and optional path prefixes; a new rule covers process substitution. `test_remote_script_wrapper_forms` failed first, then passed. `curl … | grep bash` and `curl … | tee x.sh` stay allowed.
+- **Residual risk:** Wrapper arguments that are neither options nor assignments (`sudo -u root bash`) and download-then-run in two steps are not caught.
+
+## CCTG-012 — Words containing "set" treated as the `set` builtin
+
+- **Summary / severity:** P2, usability. `python3 make_dataset.py | curl -d @- …` was denied as "environment variable exfiltration"; `offset`, `reset`, `preset` behaved the same.
+- **Affected version / prerequisites:** `3007550` through v0.2.0.
+- **Root cause:** `(?:printenv|env|set)\b` had no leading word boundary.
+- **Fix / regression:** Add `\b` before the group. `test_set_substring_not_env_dump` failed first, then passed; `env | curl …` is still denied.
+
 Other design and compatibility issues, including path quoting, probe error disclosure, test portability, and known Shell evasion cases, are documented in `REVIEW.md` and tested where feasible. These are project self-audit findings; no external project vulnerability was probed or reported.
